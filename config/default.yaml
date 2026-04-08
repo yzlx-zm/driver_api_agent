@@ -1,0 +1,188 @@
+# Driver API Doc Agent - 默认配置
+# 版本: v1.0
+
+# ============================================================
+# 输入配置
+# ============================================================
+input:
+  # 源文件编码
+  encoding: utf-8
+  # 支持的文件扩展名
+  extensions:
+    - .h
+    - .c
+  # 排除的文件模式
+  exclude_patterns:
+    - "*_test.c"
+    - "*_test.h"
+    - "test_*"
+    - "mock_*"
+
+# ============================================================
+# 输出配置
+# ============================================================
+output:
+  # 输出格式: markdown / html / confluence
+  format: markdown
+  # 文件编码
+  encoding: utf-8
+  # 输出文件名模板 (支持变量: {module}, {date})
+  filename_template: "{module}_API_Document.md"
+
+# ============================================================
+# 解析配置
+# ============================================================
+parser:
+  # 是否包含static函数
+  include_static: true
+  # 是否提取注释
+  extract_comments: true
+  # 注释风格: doxygen / normal / all
+  comment_style: all
+  # 是否解析条件编译块
+  parse_conditionals: false
+  # 函数分类关键词
+  category_keywords:
+    init:
+      - init
+      - deinit
+      - start
+      - stop
+      - reset
+    query:
+      - get
+      - is
+      - has
+      - check
+    callback:
+      - callback
+      - handler
+      - on_
+
+# ============================================================
+# 校验配置
+# ============================================================
+validator:
+  # 是否启用校验
+  enabled: true
+  # 校验级别: strict / normal / loose
+  level: normal
+
+  # 各类校验开关
+  check_signature: true          # 声明-定义一致性
+  check_struct_comments: true    # 结构体字段注释
+  check_coverage: true           # 函数文档覆盖率
+  check_naming: true             # 命名规范
+  check_param_direction: true    # 参数方向标注
+
+  # 命名规范配置
+  naming:
+    # 函数名前缀要求（如 "fs5708_"）
+    function_prefix: ""
+    # 宏名前缀要求（如 "FS5708_"）
+    macro_prefix: ""
+    # 枚举名前缀要求
+    enum_prefix: ""
+    # 结构体名前缀要求
+    struct_prefix: ""
+    # 是否要求 snake_case 命名
+    snake_case: true
+    # 是否要求枚举值大写
+    enum_uppercase: true
+
+  # 覆盖率阈值配置
+  coverage:
+    # 最低函数描述覆盖率(%)
+    min_description: 80
+    # 最低参数文档覆盖率(%)
+    min_param_doc: 60
+    # 最低返回值文档覆盖率(%)
+    min_return_doc: 50
+    # 最低结构体字段文档覆盖率(%)
+    min_struct_field: 80
+
+# ============================================================
+# LLM配置（可选）
+# ============================================================
+llm:
+  # 是否启用LLM增强
+  enabled: true
+  # LLM提供商: claude / openai / deepseek
+  provider: deepseek
+  # API密钥（建议使用环境变量 ANTHROPIC_API_KEY / OPENAI_API_KEY / LLM_API_KEY）
+  api_key: ""  # 使用环境变量 LLM_API_KEY 或 OPENAI_API_KEY
+  # 模型选择
+  model: deepseek-chat
+  # 自定义 API 地址（DeepSeek 等兼容 OpenAI 的服务）
+  base_url: "https://api.deepseek.com"
+  # 生成描述的最大长度
+  max_desc_length: 200
+  # 最大 token 数
+  max_tokens: 500
+  # 温度参数
+  temperature: 0.7
+  # 是否为注释缺失的函数生成描述
+  auto_generate_desc: true
+  # 响应缓存
+  cache_enabled: true
+  cache_dir: ".cache/llm"
+  # Token 使用追踪
+  track_usage: true
+  # Fallback 提供者（主 Provider 不可用时切换）
+  fallback_provider: ""
+
+# ============================================================
+# 增量更新配置
+# ============================================================
+incremental:
+  # 是否启用增量更新
+  enabled: true
+  # 是否保留手动编辑区域
+  preserve_manual: true
+  # IR缓存目录
+  cache_dir: ".cache"
+  # 是否缓存IR以支持差异检测
+  cache_ir: true
+
+# ============================================================
+# 文档模板配置
+# ============================================================
+template:
+  # 文档语言: zh / en
+  language: zh
+  # 是否包含目录
+  include_toc: true
+  # 是否使用区域标记（支持增量更新）
+  use_region_markers: true
+  # 是否包含使用示例章节
+  include_examples: true
+  # 是否包含已知限制章节
+  include_limitations: true
+  # 是否包含移植说明章节
+  include_porting: true
+  # 自定义章节顺序
+  chapter_order:
+    - overview
+    - hardware
+    - protocol
+    - data_structures
+    - api
+    - status_codes
+    - examples
+    - limitations
+    - porting
+    - references
+    - changelog
+
+# ============================================================
+# 日志配置
+# ============================================================
+logging:
+  # 日志级别: DEBUG / INFO / WARNING / ERROR
+  level: INFO
+  # 日志格式
+  format: "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"
+  # 是否输出到文件
+  file_enabled: false
+  # 日志文件路径
+  file_path: logs/agent.log
