@@ -20,7 +20,7 @@ from .parser import (
     MacroParser, CommentParser
 )
 from .validator import ValidationRunner
-from .generator import MarkdownGenerator
+from .generator import MarkdownGenerator, DesignGenerator
 from .models.ir import ModuleIR, Function, Struct, Enum, Macro
 from .llm.description_generator import create_llm_client, DescriptionGenerator
 from .incremental import DiffDetector, RegionParser, DocumentMerger
@@ -56,13 +56,19 @@ class DriverAPIDocAgent:
             'template_include_toc': self.config.template_include_toc,
         })
 
-    def process(self, input_path: str, output_path: str) -> bool:
+        # 初始化设计文档生成器
+        self.design_generator = DesignGenerator({
+            'template_language': self.config.template_language,
+        })
+
+    def process(self, input_path: str, output_path: str, generate_design: bool = False) -> bool:
         """
         处理输入文件，生成文档
 
         Args:
             input_path: 输入文件或目录路径
             output_path: 输出文件或目录路径
+            generate_design: 是否生成设计文档
 
         Returns:
             是否成功
@@ -116,7 +122,19 @@ class DriverAPIDocAgent:
 
         log_info(f"文档生成完成: {output_file}")
 
-        # 6. 输出统计
+        # 6. 生成设计文档（可选）
+        if generate_design:
+            log_info("生成设计文档...")
+            design_content = self.design_generator.generate(ir)
+
+            # 设计文档输出路径
+            design_file = self._get_design_output_file(output_path, ir)
+            if not write_file(design_file, design_content, self.config.output_encoding):
+                log_error(f"写入设计文档失败: {design_file}")
+            else:
+                log_info(f"设计文档生成完成: {design_file}")
+
+        # 7. 输出统计
         stats = ir.get_stats()
         log_info(f"统计: {stats}")
 
@@ -293,6 +311,16 @@ class DriverAPIDocAgent:
 
         return str(output_dir / filename)
 
+    def _get_design_output_file(self, output_path: str, ir: ModuleIR) -> str:
+        """确定设计文档输出文件路径"""
+        output_dir = Path(output_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        module_name = ir.name or "module"
+        filename = f"{module_name.upper()}_Design_Document.md"
+
+        return str(output_dir / filename)
+
     def _extract_module_name(self, header_file: str) -> str:
         """从头文件名提取模块名"""
         basename = Path(header_file).stem
@@ -437,6 +465,12 @@ def main():
     )
 
     parser.add_argument(
+        '--design',
+        action='store_true',
+        help='生成设计文档（包含架构图、时序图等）'
+    )
+
+    parser.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='详细输出'
@@ -455,7 +489,7 @@ def main():
     # 创建agent并运行
     agent = DriverAPIDocAgent(args.config)
 
-    success = agent.process(args.input, args.output)
+    success = agent.process(args.input, args.output, generate_design=args.design)
 
     sys.exit(0 if success else 1)
 
