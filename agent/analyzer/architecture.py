@@ -123,26 +123,51 @@ class ArchitectureAnalyzer:
         # 基于函数名和描述推断
         purposes = []
 
-        for func in ir.functions[:10]:  # 检查前10个函数
-            desc = func.description or func.brief or ""
-            name = func.name.lower()
+        # 收集所有函数的名称和描述
+        all_names = []
+        all_descs = []
+        for func in ir.functions:
+            all_names.append(func.name.lower())
+            all_descs.append(func.description or func.brief or "")
 
-            if 'face' in name or '人脸' in desc:
-                purposes.append("人脸识别")
-            if 'palm' in name or '掌静脉' in desc or '掌纹' in desc:
-                purposes.append("掌静脉识别")
-            if 'uart' in name or 'serial' in name:
-                purposes.append("串口通信")
-            if 'spi' in name:
-                purposes.append("SPI通信")
-            if 'i2c' in name or 'iic' in name:
-                purposes.append("I2C通信")
-            if 'gpio' in name:
-                purposes.append("GPIO控制")
-            if 'lcd' in name or 'display' in name or 'screen' in name:
-                purposes.append("显示屏驱动")
-            if 'sensor' in name:
-                purposes.append("传感器驱动")
+        # 合并为一个字符串进行匹配
+        names_str = " ".join(all_names)
+        descs_str = " ".join(all_descs)
+
+        # 业务功能检测（优先级高）
+        business_purposes = []
+
+        if 'face' in names_str or '人脸' in descs_str:
+            business_purposes.append("人脸识别")
+        if 'palm' in names_str or '掌静脉' in descs_str or '掌纹' in descs_str:
+            business_purposes.append("掌静脉识别")
+        if 'fingerprint' in names_str or '指纹' in descs_str:
+            business_purposes.append("指纹识别")
+        if 'voice' in names_str or '语音' in descs_str:
+            business_purposes.append("语音识别")
+        if 'enroll' in names_str or 'verify' in names_str:
+            if not business_purposes:  # 如果没有识别到具体类型
+                business_purposes.append("生物识别")
+
+        # 如果有业务功能，直接返回
+        if business_purposes:
+            return "、".join(business_purposes)
+
+        # 通信接口检测（优先级低，仅在没有业务功能时使用）
+        if 'uart' in names_str or 'serial' in names_str:
+            purposes.append("串口通信")
+        if 'spi' in names_str:
+            purposes.append("SPI通信")
+        if 'i2c' in names_str or 'iic' in names_str:
+            purposes.append("I2C通信")
+        if 'gpio' in names_str:
+            purposes.append("GPIO控制")
+        if 'lcd' in names_str or 'display' in names_str or 'screen' in names_str:
+            purposes.append("显示屏驱动")
+        if 'sensor' in names_str:
+            purposes.append("传感器驱动")
+        if 'gc9107' in names_str or 'gc9107' in descs_str.lower():
+            purposes.append("LCD显示驱动")
 
         # 去重并返回
         unique_purposes = list(dict.fromkeys(purposes))

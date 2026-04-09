@@ -308,9 +308,9 @@ class SequenceAnalyzer:
             elif step.step_type == SequenceStepType.ASYNC_CALL:
                 lines.append(f"    {source}-){target}: {step.action}")
             elif step.step_type == SequenceStepType.CALLBACK:
-                lines.append(f"    {target}-->>{source}: {step.action}")
+                lines.append(f"    {source}->>{target}: {step.action}")
             elif step.step_type == SequenceStepType.RESPONSE:
-                lines.append(f"    {target}-->>{source}: {step.action}")
+                lines.append(f"    {source}-->>{target}: {step.action}")
             else:
                 lines.append(f"    {source}->>{target}: {step.action}")
 

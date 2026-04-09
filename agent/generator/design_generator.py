@@ -11,17 +11,57 @@ from ..analyzer.dependency import DependencyAnalyzer, DependencyGraph
 from ..analyzer.dataflow import DataflowAnalyzer, DataflowInfo
 from ..analyzer.sequence import SequenceAnalyzer, SequenceInfo
 from ..models.ir import ModuleIR
+from ..llm.description_generator import create_llm_client, DescriptionGenerator as LLMDescriptionGenerator
 
 
 class DesignGenerator:
     """设计文档生成器"""
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: dict = None, llm_client=None):
         self.config = config or {}
         self.arch_analyzer = ArchitectureAnalyzer(config)
         self.dep_analyzer = DependencyAnalyzer(config)
         self.flow_analyzer = DataflowAnalyzer(config)
         self.seq_analyzer = SequenceAnalyzer(config)
+        self.llm_client = llm_client
+        self.llm_generator = None
+
+        # 初始化 LLM 生成器（如果配置了）
+        if llm_client and self.config.get('llm_enabled', False):
+            self.llm_generator = LLMDescriptionGenerator(
+                llm_client,
+                {'auto_generate_desc': True}
+            )
+
+    def _get_description(self, obj, obj_type: str = "function") -> str:
+        """
+        获取对象的描述，如果缺失则尝试用 LLM 生成
+
+        Args:
+            obj: 函数/结构体/枚举等对象
+            obj_type: 对象类型 (function/struct/enum/field)
+
+        Returns:
+            描述文本
+        """
+        # 优先使用现有描述
+        desc = getattr(obj, 'description', None) or getattr(obj, 'brief', None)
+        if desc and desc != '待补充':
+            return desc
+
+        # 如果配置了 LLM，尝试生成描述
+        if self.llm_generator and self.config.get('llm_enabled', False):
+            try:
+                if obj_type == "function":
+                    return self.llm_generator.generate_function_description(obj)
+                elif obj_type == "field":
+                    return self.llm_generator.generate_field_description(obj)
+                elif obj_type == "struct":
+                    return self.llm_generator.generate_struct_description(obj)
+            except Exception:
+                pass  # LLM 生成失败时回退到默认值
+
+        return "待补充"
 
     def generate(self, ir: ModuleIR, arch_info: ArchitectureInfo = None,
                  dep_graph: DependencyGraph = None,
@@ -340,7 +380,7 @@ class DesignGenerator:
                 "|------|------|",
             ])
             for func in public_funcs[:15]:
-                desc = func.description or func.brief or "待补充"
+                desc = self._get_description(func, "function")
                 if len(desc) > 30:
                     desc = desc[:30] + "..."
                 lines.append(f"| `{func.name}()` | {desc} |")
@@ -354,17 +394,32 @@ class DesignGenerator:
             "",
         ])
 
-        # 回调函数
+        # 回调函数 - 扩展识别规则
+        callback_keywords = ['callback', 'handler', 'on_', 'notify', 'listener', 'event', 'cb_']
         callback_funcs = [f for f in ir.functions
-                          if 'callback' in f.name.lower() or 'handler' in f.name.lower()]
+                          if any(kw in f.name.lower() for kw in callback_keywords)]
+
+        # 同时检查函数参数中是否有函数指针类型
+        if hasattr(ir, 'typedefs'):
+            for typedef in ir.typedefs:
+                if 'callback' in typedef.name.lower() or 'handler' in typedef.name.lower():
+                    # 如果有函数指针 typedef，查找使用它的函数
+                    for f in ir.functions:
+                        for param in f.params:
+                            if typedef.name in param.type:
+                                if f not in callback_funcs:
+                                    callback_funcs.append(f)
+
         if callback_funcs:
             lines.extend([
                 "| 回调 | 说明 |",
                 "|------|------|",
             ])
             for func in callback_funcs[:5]:
-                desc = func.description or func.brief or "待补充"
+                desc = self._get_description(func, "function")
                 lines.append(f"| `{func.name}()` | {desc} |")
+            if len(callback_funcs) > 5:
+                lines.append(f"| ... | 共 {len(callback_funcs)} 个回调 |")
         else:
             lines.append("无显式回调接口。")
 
@@ -414,7 +469,7 @@ class DesignGenerator:
                 ])
 
                 for field in struct.fields[:8]:
-                    desc = field.description or "待补充"
+                    desc = self._get_description(field, "field")
                     if len(desc) > 25:
                         desc = desc[:25] + "..."
                     lines.append(f"| `{field.name}` | `{field.type}` | {desc} |")

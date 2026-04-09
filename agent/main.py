@@ -59,6 +59,7 @@ class DriverAPIDocAgent:
         # 初始化设计文档生成器
         self.design_generator = DesignGenerator({
             'template_language': self.config.template_language,
+            'llm_enabled': self.config.llm_enabled,
         })
 
     def process(self, input_path: str, output_path: str, generate_design: bool = False) -> bool:
@@ -125,6 +126,18 @@ class DriverAPIDocAgent:
         # 6. 生成设计文档（可选）
         if generate_design:
             log_info("生成设计文档...")
+
+            # 如果启用了 LLM，为设计文档生成器创建 LLM 客户端
+            llm_client = None
+            if self.config.llm_enabled:
+                client = create_llm_client(self.config.__dict__)
+                if client and client.is_available():
+                    llm_client = client
+
+            # 更新设计生成器的 LLM 配置
+            self.design_generator.llm_client = llm_client
+            self.design_generator.config['llm_enabled'] = llm_client is not None
+
             design_content = self.design_generator.generate(ir)
 
             # 设计文档输出路径
